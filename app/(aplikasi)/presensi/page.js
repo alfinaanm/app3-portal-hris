@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePengguna } from "@/lib/pengguna";
 import { useAmbilData } from "@/lib/useAmbilData";
-import { ambilPresensi } from "@/lib/data";
-import { bulanIni, formatBulan, formatJam, formatTanggal, terlambat } from "@/lib/waktu";
+import { ambilPresensi, ambilPresensiTanggal, catatPresensiMasuk, catatPresensiPulang } from "@/lib/data";
+import { bulanIni, formatBulan, formatJam, formatTanggal, terlambat, tanggalHariIni } from "@/lib/waktu";
 import KepalaHalaman from "@/components/KepalaHalaman";
 import Ikon from "@/components/Ikon";
 import Memuat from "@/components/Memuat";
@@ -22,11 +22,54 @@ export default function HalamanPresensi() {
   const dariAlamat = searchParams.get("bulan");
   const bulan = /^\d{4}-\d{2}$/.test(dariAlamat ?? "") ? dariAlamat : bulanIni();
 
-  const { status, data, cobaLagi } = useAmbilData(() => ambilPresensi(pengguna.uid, bulan), [pengguna.uid, bulan]);
+  const { status, data, cobaLagi } = useAmbilData(() => ambilPresensi(pengguna?.uid, bulan), [pengguna?.uid, bulan]);
 
-  // Catat Masuk/Pulang hanya mengubah tampilan, belum menyimpan / Clock in/out only changes the screen, nothing is saved yet
   const [jamMasuk, setJamMasuk] = useState(null);
   const [jamPulang, setJamPulang] = useState(null);
+  const [memproses, setMemproses] = useState(false);
+
+  // Ambil presensi hari ini dari Firestore saat halaman dimuat
+  useEffect(() => {
+    if (!pengguna?.uid) return;
+    let aktif = true;
+    ambilPresensiTanggal(pengguna.uid, tanggalHariIni()).then((p) => {
+      if (aktif && p) {
+        if (p.jamMasuk) setJamMasuk(p.jamMasuk);
+        if (p.jamPulang) setJamPulang(p.jamPulang);
+      }
+    });
+    return () => {
+      aktif = false;
+    };
+  }, [pengguna?.uid]);
+
+  async function handleCatatMasuk() {
+    if (!pengguna?.uid) return;
+    setMemproses(true);
+    try {
+      const p = await catatPresensiMasuk(pengguna.uid);
+      setJamMasuk(p.jamMasuk);
+      cobaLagi();
+    } catch (err) {
+      console.error("Gagal catat masuk:", err);
+    } finally {
+      setMemproses(false);
+    }
+  }
+
+  async function handleCatatPulang() {
+    if (!pengguna?.uid) return;
+    setMemproses(true);
+    try {
+      const p = await catatPresensiPulang(pengguna.uid);
+      setJamPulang(p.jamPulang);
+      cobaLagi();
+    } catch (err) {
+      console.error("Gagal catat pulang:", err);
+    } finally {
+      setMemproses(false);
+    }
+  }
 
   const jumlahTerlambat = data ? data.filter((p) => terlambat(p.jamMasuk)).length : 0;
 
@@ -44,19 +87,24 @@ export default function HalamanPresensi() {
           </p>
           {jamMasuk !== null && (
             <p className="mt-1 text-sm font-semibold text-redup">
-              {terlambat(jamMasuk) ? "Terlambat. " : "Tepat waktu. "}Contoh tampilan, belum tersimpan.
+              {terlambat(jamMasuk) ? "Terlambat. " : "Tepat waktu. "}Tersimpan di Firestore.
             </p>
           )}
         </div>
         <div className="flex flex-wrap gap-3">
-          <button type="button" onClick={() => setJamMasuk(new Date())} disabled={jamMasuk !== null} className="tombol-utama px-6 py-3 text-lg">
+          <button
+            type="button"
+            onClick={handleCatatMasuk}
+            disabled={jamMasuk !== null || memproses}
+            className="tombol-utama px-6 py-3 text-lg"
+          >
             <Ikon nama="masuk" />
             Catat Masuk
           </button>
           <button
             type="button"
-            onClick={() => setJamPulang(new Date())}
-            disabled={jamMasuk === null || jamPulang !== null}
+            onClick={handleCatatPulang}
+            disabled={jamMasuk === null || jamPulang !== null || memproses}
             className="tombol-kunyit px-6 py-3 text-lg"
           >
             <Ikon nama="keluar" />

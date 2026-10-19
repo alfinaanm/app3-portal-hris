@@ -16,14 +16,14 @@ export default function HalamanBeranda() {
 
   // Dua data diambil bersamaan / Both pieces of data are fetched together
   const { status, data, cobaLagi } = useAmbilData(async () => {
-    // Tanggal dihitung di sini, bukan saat render, supaya tidak terkunci di tanggal build / Computed here, not during render, so it is not frozen at build date
+    if (!pengguna?.uid) return null;
     const hariIni = tanggalHariIni();
     const [presensi, cuti] = await Promise.all([
       ambilPresensiTanggal(pengguna.uid, hariIni),
       ambilPengajuanCuti(pengguna.uid),
     ]);
     return { hariIni, presensi, menunggu: cuti.filter((c) => c.status === "menunggu").length };
-  }, [pengguna.uid]);
+  }, [pengguna?.uid]);
 
   let teksPresensi = "Belum presensi hari ini";
   if (data?.presensi?.jamPulang) teksPresensi = "Sudah pulang";
@@ -32,7 +32,7 @@ export default function HalamanBeranda() {
   return (
     <div className="space-y-8">
       <KepalaHalaman
-        judul={`Halo, ${pengguna.nama}!`}
+        judul={`Halo, ${pengguna?.nama || "Karyawan"}!`}
         keterangan={data ? formatTanggal(data.hariIni) : "Ringkasan hari ini"}
         ikon="rumah"
       >

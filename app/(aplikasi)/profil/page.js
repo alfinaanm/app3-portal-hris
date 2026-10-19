@@ -1,18 +1,42 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePengguna } from "@/lib/pengguna";
+import { ambilKaryawan, perbaruiProfil } from "@/lib/data";
 import KepalaHalaman from "@/components/KepalaHalaman";
 
-// Profil (PRD 4.5). Nama bisa diubah di tampilan, belum disimpan / Profile (PRD 4.5). Name is editable on screen, not saved yet
+// Profil (PRD 4.5) / Profile (PRD 4.5)
 export default function HalamanProfil() {
   const { pengguna } = usePengguna();
-  const [nama, setNama] = useState(pengguna.nama);
+  const [nama, setNama] = useState(pengguna?.nama ?? "");
   const [pesan, setPesan] = useState("");
 
-  function simpan(e) {
+  useEffect(() => {
+    if (!pengguna?.uid) return;
+    let aktif = true;
+    ambilKaryawan(pengguna.uid).then((k) => {
+      if (aktif && k?.nama) {
+        setNama(k.nama);
+      }
+    });
+    return () => {
+      aktif = false;
+    };
+  }, [pengguna?.uid]);
+
+  async function simpan(e) {
     e.preventDefault();
-    setPesan(nama.trim() ? "Nama diperbarui (contoh, belum tersimpan)." : "Nama wajib diisi.");
+    if (!nama.trim()) {
+      setPesan("Nama wajib diisi.");
+      return;
+    }
+    try {
+      await perbaruiProfil(pengguna.uid, { nama: nama.trim() });
+      setPesan("Nama berhasil diperbarui di Firestore.");
+    } catch (err) {
+      console.error("Gagal memperbarui profil:", err);
+      setPesan(`Gagal memperbarui profil: ${err.message}`);
+    }
   }
 
   return (

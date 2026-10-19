@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useAmbilData } from "@/lib/useAmbilData";
-import { ambilSemuaPengajuan } from "@/lib/data";
+import { ambilSemuaPengajuan, putuskanCuti } from "@/lib/data";
 import { formatTanggal, lamaHari } from "@/lib/waktu";
 import KepalaHalaman from "@/components/KepalaHalaman";
 import Ikon from "@/components/Ikon";
@@ -28,14 +28,21 @@ export default function HalamanPersetujuanCuti() {
 
   const { status: keadaan, data, cobaLagi } = useAmbilData(() => ambilSemuaPengajuan(status), [status]);
 
-  // Keputusan dan catatan hanya disimpan di tampilan / Decisions and notes are only kept on screen
   const [keputusan, setKeputusan] = useState({});
   const [catatan, setCatatan] = useState({});
   const [pesan, setPesan] = useState("");
 
-  function putuskan(c, statusBaru) {
-    setKeputusan({ ...keputusan, [c.id]: statusBaru });
-    setPesan(`${c.id} milik ${c.nama} ${statusBaru} (contoh, belum tersimpan).`);
+  async function putuskan(c, statusBaru) {
+    const teksCatatan = catatan[c.id] ?? c.catatanHrd ?? "";
+    try {
+      await putuskanCuti(c.id, statusBaru, teksCatatan);
+      setKeputusan((prev) => ({ ...prev, [c.id]: statusBaru }));
+      setPesan(`${c.id} milik ${c.nama} berhasil ${statusBaru}. Tersimpan di Firestore.`);
+      cobaLagi();
+    } catch (err) {
+      console.error("Gagal memperbarui status cuti:", err);
+      setPesan(`Gagal memperbarui status ${c.id}: ${err.message}`);
+    }
   }
 
   // Pengajuan yang baru diputuskan keluar dari saringan Menunggu / Freshly decided requests drop out of the Menunggu filter

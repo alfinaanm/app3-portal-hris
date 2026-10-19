@@ -17,7 +17,7 @@ import PilStatus from "@/components/PilStatus";
 export default function HalamanCuti() {
   const { pengguna } = usePengguna();
   const router = useRouter();
-  const { status, data, cobaLagi } = useAmbilData(() => ambilPengajuanCuti(pengguna.uid), [pengguna.uid]);
+  const { status, data, cobaLagi } = useAmbilData(() => ambilPengajuanCuti(pengguna?.uid), [pengguna?.uid]);
 
   const tombolAjukan = (
     <Link href="/cuti/baru" className="tombol-utama">
